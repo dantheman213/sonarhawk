@@ -1,0 +1,4 @@
+github.com/dantheman213/go-cli v0.0.0-20200807180604-1c3722b96f3e h1:KSF73Ixxny7ZBvgKAJJAM7K/nVv/new+uUdA+Uj9QDk=
+github.com/dantheman213/go-cli v0.0.0-20200807180604-1c3722b96f3e/go.mod h1:o7YdcSSV2535wZSFOmw7y8fJd5AaPPGKcLhzg8qsXcQ=
+github.com/dantheman213/gps v0.0.0-20200108231128-5833281858e3 h1:byIPAAgsN5tWZCHpRo7bCHKICT+UjQSFAkh3AULp9cs=
+github.com/dantheman213/gps v0.0.0-20200108231128-5833281858e3/go.mod h1:ToxqsvQvrS/g9+7XF+t4AahfzMOQe2W0CewHZ4XKTIo=

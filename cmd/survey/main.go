@@ -45,7 +45,7 @@ func main() {
             log.Fatal(err)
         }
 
-        wifi, err := ingestWifiData(out.String())
+        list, err := ingestWifiData(out.String())
         if err != nil {
             log.Error(err)
             continue
@@ -57,16 +57,12 @@ func main() {
             continue
         }
 
-        point := &DataPoint{
-            WiFi:      *wifi,
-            Latitude:  loc.Latitude,
-            Longitude: loc.Longitude,
-        }
-
-        csv := fmt.Sprintf("%s, %s, %s, %s, %s, %v, %v, %v\n", point.WiFi.SSID, point.WiFi.Authentication, point.WiFi.Encryption, point.WiFi.BSSID, point.WiFi.RadioType, point.WiFi.Signal, point.Latitude, point.Longitude)
-        log.Info(csv)
-        if _, err := f.WriteString(csv); err != nil {
-            log.Error(err)
+        for _, item := range *list {
+            csv := fmt.Sprintf("%s, %s, %s, %s, %s, %v, %v, %v\n", item.SSID, item.Authentication, item.Encryption, item.BSSID, item.RadioType, item.Signal, loc.Latitude, loc.Longitude)
+            log.Info(csv)
+            if _, err := f.WriteString(csv); err != nil {
+                log.Error(err)
+            }
         }
     }
 
@@ -96,7 +92,7 @@ type WiFiData struct {
     RadioType string
 }
 
-func ingestWifiData(dat string) (*WiFiData, error) {
+func ingestWifiData(dat string) (*[]WiFiData, error) {
     if runtime.GOOS == "windows" {
         return ingestWifiDataWindows(dat)
     }
@@ -115,45 +111,61 @@ func ingestWifiData(dat string) (*WiFiData, error) {
 //Channel            : 44
 //Basic rates (Mbps) : 6 12 24
 //Other rates (Mbps) : 9 18 36 48 54
-func ingestWifiDataWindows(dat string) (*WiFiData, error) {
+func ingestWifiDataWindows(dat string) (*[]WiFiData, error) {
     dat = strings.ReplaceAll(dat, "\r", "")
-    lines := strings.Split(dat, "\n")
+    items := strings.Split(dat, "\nSSID ")
 
-    result := &WiFiData{}
-    for _, line := range lines {
-        line = strings.TrimSpace(line)
+    var results []WiFiData
+    for _, item := range items {
+        item = "SSID " + item
+        lines := strings.Split(item, "\n")
 
-        if strings.HasPrefix(line, "SSID") && strings.Index(line, ":") > -1 {
-            parts := strings.Split(line, ":")
-            result.SSID = strings.TrimSpace(parts[1])
-        } else if strings.HasPrefix(line, "Authentication") && strings.Index(line, ":") > -1 {
-            parts := strings.Split(line, ":")
-            result.Authentication = strings.TrimSpace(parts[1])
-        } else if strings.HasPrefix(line, "Encryption") && strings.Index(line, ":") > -1 {
-            parts := strings.Split(line, ":")
-            result.Encryption = strings.TrimSpace(parts[1])
-        } else if result.BSSID == "" && strings.HasPrefix(line, "BSSID") && strings.Index(line, ":") > -1 {
-            parts := strings.Split(line, ":")
-            result.BSSID = strings.TrimSpace(parts[1])
-        } else if  result.Signal == 0 && strings.HasPrefix(line, "Signal") && strings.Index(line, ":") > -1 {
-            parts := strings.Split(line, ":")
+        result := &WiFiData{}
+        for _, line := range lines {
+            line = strings.TrimSpace(line)
 
-            reg, err := regexp.Compile("[^0-9]+")
-            if err != nil {
-                log.Error(err)
+            if strings.HasPrefix(line, "SSID") && strings.Index(line, ":") > -1 {
+                parts := strings.Split(line, ":")
+                log.Debugf("SSID DETECTED: %s", line)
+                result.SSID = strings.TrimSpace(parts[1])
+            } else if strings.HasPrefix(line, "Authentication") && strings.Index(line, ":") > -1 {
+                parts := strings.Split(line, ":")
+                result.Authentication = strings.TrimSpace(parts[1])
+            } else if strings.HasPrefix(line, "Encryption") && strings.Index(line, ":") > -1 {
+                parts := strings.Split(line, ":")
+                result.Encryption = strings.TrimSpace(parts[1])
+            } else if result.BSSID == "" && strings.HasPrefix(line, "BSSID") && strings.Index(line, ":") > -1 {
+                idx := strings.Index(line, ":")
+                result.BSSID = strings.TrimSpace(line[idx+1:])
+            } else if  result.Signal == 0 && strings.HasPrefix(line, "Signal") && strings.Index(line, ":") > -1 {
+                //log.Info(line)
+                parts := strings.Split(line, ":")
+
+                reg, err := regexp.Compile("[^0-9]+")
+                if err != nil {
+                    log.Error(err)
+                }
+
+                part := reg.ReplaceAllString(parts[1], "")
+                num, err := strconv.ParseFloat(part, 32)
+                if err != nil {
+                    return nil, err
+                }
+                result.Signal = num / 100
+            } else if result.RadioType == "" && strings.HasPrefix(line, "Radio type") && strings.Index(line, ":") > -1 {
+                parts := strings.Split(line, ":")
+                result.RadioType = strings.TrimSpace(parts[1])
             }
-
-            part := reg.ReplaceAllString(parts[1], "")
-            num, err := strconv.ParseFloat(part, 32)
-            if err != nil {
-                return nil, err
-            }
-            result.Signal = num / 100
-        } else if result.RadioType == "" && strings.HasPrefix(line, "Radio type") && strings.Index(line, ":") > -1 {
-            parts := strings.Split(line, ":")
-            result.RadioType = strings.TrimSpace(parts[1])
         }
+
+        if result.SSID == "" || result.Authentication == "" {
+            continue
+        }
+
+        results = append(results, *result)
     }
 
-    return result, nil
+
+
+    return &results, nil
 }

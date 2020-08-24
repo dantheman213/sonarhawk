@@ -21,3 +21,19 @@ cd bin/
 ```
 
 Open `survey.kml` in **Google Earth Pro** for a detailed map of the WiFi networks that you surveyed.
+
+## Hardware
+
+### GPS
+
+Any GPS dongle using USB-over-Serial should work. Confirmed working hardware items are:
+
+* BN-80U
+
+* BS-708
+
+* BU-353-S4
+
+* VK-162
+
+* VK-172

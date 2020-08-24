@@ -12,8 +12,12 @@ cd sonarhawk/
 make deps
 make
 cd bin/
+
+# You'll want to walk or drive around while running this utility to sample the area that you want. If driving recommended to go slow so device has time to scan networks in the area.
 ./sonarhawk-survey -output survey.csv
+
+# This can be run at any time after the survey has been completed.
 ./sonarkhawk-process -input survey.csv -output survey.kml
 ```
 
-Open `survey.kml` in Google Earth Pro for a detailed map of the WiFi networks that you surveyed.
+Open `survey.kml` in **Google Earth Pro** for a detailed map of the WiFi networks that you surveyed.

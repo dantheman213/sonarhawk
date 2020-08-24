@@ -1,0 +1,149 @@
+package main
+
+import (
+    "encoding/csv"
+    "flag"
+    "fmt"
+    "github.com/dantheman213/sonarhawk/pkg/ingest"
+    "github.com/dantheman213/sonarhawk/pkg/kml"
+    log "github.com/sirupsen/logrus"
+    "io/ioutil"
+    "sort"
+    "strconv"
+    "strings"
+)
+
+func main () {
+    input := flag.String("input", "", "The file path to read the CSV produced from survey binary.")
+    output := flag.String("output", "", "The file path to write the KML output at.")
+    flag.Parse()
+
+    if *input == "" {
+        log.Fatal("no file path for input selected")
+    }
+
+    if *output == "" {
+        log.Fatal("no file path for output selected")
+    }
+
+    items, err := parseCSV(*input)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    kmlStr := compute(items)
+    err = ioutil.WriteFile(*output, []byte(kmlStr), 0644)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Info("COMPLETE!")
+}
+
+func parseCSV(path string) (map[string][]ingest.DataPoint, error) {
+    results := make(map[string][]ingest.DataPoint, 0)
+
+    dat, err := ioutil.ReadFile(path)
+    if err != nil {
+        return nil, err
+    }
+
+    r := csv.NewReader(strings.NewReader(string(dat)))
+    records, err := r.ReadAll()
+    if err != nil {
+        return nil, err
+    }
+
+    for i, record := range records {
+        if i == 0 {
+            continue
+        }
+
+        latitude, err := strconv.ParseFloat(record[6], 32)
+        if err != nil {
+            log.Error(err)
+            continue
+        }
+
+        longitude, err := strconv.ParseFloat(record[7], 32)
+        if err != nil {
+            log.Error(err)
+            continue
+        }
+
+        signal, err := strconv.ParseFloat(record[5], 32)
+        if err != nil {
+            log.Error(err)
+            continue
+        }
+
+        result := ingest.DataPoint{
+            Latitude:  latitude,
+            Longitude: longitude,
+            Wifi:      &ingest.WiFiData{
+                SSID:           record[0],
+                Authentication: record[1],
+                Encryption:     record[2],
+                BSSID:          strings.ToLower(record[3]),
+                Signal:         signal,
+                RadioType:      record[4],
+            },
+        }
+
+        if results[result.Wifi.BSSID] == nil {
+            results[result.Wifi.BSSID] = make([]ingest.DataPoint, 0)
+        }
+        results[result.Wifi.BSSID] = append(results[result.Wifi.BSSID], result)
+    }
+
+    return results, nil
+}
+
+func compute(items map[string][]ingest.DataPoint) string {
+    payload := kml.TemplateParent
+    placemarksStr := ""
+
+    lat := 0.0
+    lng := 0.0
+
+    for _, item := range items {
+        sort.Slice(item, func(i, j int) bool {
+            return item[i].Wifi.Signal > item[j].Wifi.Signal
+        })
+
+        if lat == 0 || lng  == 0 {
+            lat = item[0].Latitude
+            lng = item[0].Longitude
+        }
+
+        // TODO: weight using wifi signal
+        str := kml.TemplatePlacemark
+        desc := fmt.Sprintf("%0.2f%% | %s | %s| %s | %s", item[0].Wifi.Signal * 100, item[0].Wifi.BSSID, item[0].Wifi.Authentication, item[0].Wifi.Encryption, item[0].Wifi.RadioType)
+        str = strings.Replace(str, "%%KML_PLACEMARK_TITLE%%", xmlEscapeString(item[0].Wifi.SSID), 1)
+        str = strings.Replace(str, "%%KML_PLACEMARK_DESCRIPTION%%", desc, 1)
+        str = strings.Replace(str, "%%KML_PLACEMARK_LONGITUDE%%", fmt.Sprintf("%f", item[0].Longitude), 1)
+        str = strings.Replace(str, "%%KML_PLACEMARK_LATITUDE%%", fmt.Sprintf("%f", item[0].Latitude), 1)
+
+        placemarksStr += str + "\n"
+    }
+
+    payload = strings.Replace(payload, "%%KML_TITLE%%", "WiFi Site Survey", 1)
+    payload = strings.Replace(payload, "%%KML_DESCRIPTION%%", fmt.Sprintf("Total networks surveyed: %d", len(items)), 1)
+
+    // TODO
+    payload = strings.Replace(payload, "%%KML_LOOKAT_LATITUDE%%", fmt.Sprintf("%f", lat), 1)
+    payload = strings.Replace(payload, "%%KML_LOOKAT_LONGITUDE%%", fmt.Sprintf("%f", lng), 1)
+
+    payload = strings.Replace(payload, "%%KML_PLACEMARKS%%", placemarksStr, 1)
+
+    return payload
+}
+
+func xmlEscapeString(str string) string {
+    str = strings.ReplaceAll(str, "\"", "&quot;")
+    str = strings.ReplaceAll(str, "'", "&apos;")
+    str = strings.ReplaceAll(str, "&", "&amp;")
+    str = strings.ReplaceAll(str, "<", "&lt;")
+    str = strings.ReplaceAll(str, ">", "&gt;")
+    return str
+}

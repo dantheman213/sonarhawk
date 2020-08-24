@@ -58,7 +58,7 @@ func main() {
         }
 
         for _, item := range *list {
-            csv := fmt.Sprintf("%s, %s, %s, %s, %s, %v, %v, %v\n", item.SSID, item.Authentication, item.Encryption, item.BSSID, item.RadioType, item.Signal, loc.Latitude, loc.Longitude)
+            csv := fmt.Sprintf("%s,%s,%s,%s,%s,%v,%v,%v\n", item.SSID, item.Authentication, item.Encryption, item.BSSID, item.RadioType, item.Signal, loc.Latitude, loc.Longitude)
             log.Info(csv)
             if _, err := f.WriteString(csv); err != nil {
                 log.Error(err)
@@ -77,22 +77,7 @@ func generateWifiCommand() string {
     return ""
 }
 
-type DataPoint struct {
-    WiFi WiFiData
-    Latitude float64
-    Longitude float64
-}
-
-type WiFiData struct {
-    SSID string
-    Authentication string
-    Encryption string
-    BSSID string
-    Signal float64
-    RadioType string
-}
-
-func ingestWifiData(dat string) (*[]WiFiData, error) {
+func ingestWifiData(dat string) (*[]ingest.WiFiData, error) {
     if runtime.GOOS == "windows" {
         return ingestWifiDataWindows(dat)
     }
@@ -111,16 +96,16 @@ func ingestWifiData(dat string) (*[]WiFiData, error) {
 //Channel            : 44
 //Basic rates (Mbps) : 6 12 24
 //Other rates (Mbps) : 9 18 36 48 54
-func ingestWifiDataWindows(dat string) (*[]WiFiData, error) {
+func ingestWifiDataWindows(dat string) (*[]ingest.WiFiData, error) {
     dat = strings.ReplaceAll(dat, "\r", "")
     items := strings.Split(dat, "\nSSID ")
 
-    var results []WiFiData
+    var results []ingest.WiFiData
     for _, item := range items {
         item = "SSID " + item
         lines := strings.Split(item, "\n")
 
-        result := &WiFiData{}
+        result := &ingest.WiFiData{}
         for _, line := range lines {
             line = strings.TrimSpace(line)
 

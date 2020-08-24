@@ -6,6 +6,20 @@ import (
     log "github.com/sirupsen/logrus"
 )
 
+type WiFiData struct {
+    SSID string
+    Authentication string
+    Encryption string
+    BSSID string
+    Signal float64
+    RadioType string
+}
+
+type DataPoint struct {
+    Latitude, Longitude float64
+    Wifi *WiFiData
+}
+
 func IngestGPSData(engine *libGPS.GPS) {
     device, err := serial.DetectGPSDevice()
     if err != nil {

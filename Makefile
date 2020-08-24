@@ -4,7 +4,7 @@ BUILD_FLAGS := -installsuffix "static"
 
 .PHONY: all build clean deps
 
-all: build
+all: linux
 
 linux:
 	CGO_ENABLED=1 \

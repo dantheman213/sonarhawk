@@ -37,7 +37,7 @@ windows:
 	GOARCH=amd64 \
 	go build \
 	$(BUILD_FLAGS) \
-	-o $(BIN_PATH)-process \
+	-o $(BIN_PATH)-process.exe \
 	cmd/process/main.go
 
 deps:

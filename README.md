@@ -21,7 +21,7 @@ cd bin/
 ./sonarkhawk-process -input survey.csv -output survey.kml
 ```
 
-Open `survey.kml` in **Google Earth Pro** for a detailed map of the WiFi networks that you surveyed.
+Open `survey.kml` in [Google Earth Pro](https://www.google.com/earth/versions/#earth-pro) for a detailed map of the WiFi networks that you surveyed.
 
 ## Hardware
 

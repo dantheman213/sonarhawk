@@ -38,7 +38,7 @@ func main() {
     }
 
     for true {
-        time.Sleep(2 * time.Second)
+        time.Sleep(1 * time.Second)
 
         _, out, _, err := cli.MakeAndRunCommandThenWait(generateWifiCommand())
         if err != nil {

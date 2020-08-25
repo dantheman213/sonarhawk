@@ -8,6 +8,7 @@ import (
     "github.com/dantheman213/sonarhawk/pkg/kml"
     log "github.com/sirupsen/logrus"
     "io/ioutil"
+    "math"
     "sort"
     "strconv"
     "strings"
@@ -99,30 +100,63 @@ func parseCSV(path string) (map[string][]ingest.DataPoint, error) {
     return results, nil
 }
 
+func calculateGPSCenter(list *[]ingest.DataPoint) (float64, float64) {
+    // convert to 3d cartesian from 2d
+    x := 0.0
+    y := 0.0
+    z := 0.0
+
+    for _, point := range *list {
+        lat := point.Latitude * math.Pi / 180
+        lng := point.Longitude * math.Pi / 180
+
+        x += math.Cos(lat) * math.Cos(lng)
+        y += math.Cos(lat) * math.Sin(lng)
+        z += math.Sin(lat)
+    }
+
+    total := float64(len(*list))
+    x = x / total
+    y = y / total
+    z = z / total
+
+    targetLng := math.Atan2(y, x)
+    targetSqrt := math.Sqrt(x * x + y * y)
+    targetLat := math.Atan2(z, targetSqrt)
+
+    // convert from 3d to 2d and return
+    lat := targetLat * 180 / math.Pi
+    lng := targetLng * 180 / math.Pi
+
+    return lat, lng
+}
+
 func compute(items map[string][]ingest.DataPoint) string {
     payload := kml.TemplateParent
     placemarksStr := ""
 
-    lat := 0.0
-    lng := 0.0
+    centerLat := 0.0
+    centerLng := 0.0
 
     for _, item := range items {
         sort.Slice(item, func(i, j int) bool {
+            // helps determine best signal rate captured and may be used in weighting for future GPS center calculation
             return item[i].Wifi.Signal > item[j].Wifi.Signal
         })
 
-        if lat == 0 || lng  == 0 {
-            lat = item[0].Latitude
-            lng = item[0].Longitude
+        if centerLat == 0 || centerLng == 0 {
+            centerLat = item[0].Latitude
+            centerLng = item[0].Longitude
         }
 
-        // TODO: weight using wifi signal
+        lat, lng := calculateGPSCenter(&item)
+
         str := kml.TemplatePlacemark
         desc := fmt.Sprintf("%0.2f%% | %s | %s| %s | %s", item[0].Wifi.Signal * 100, item[0].Wifi.BSSID, item[0].Wifi.Authentication, item[0].Wifi.Encryption, item[0].Wifi.RadioType)
         str = strings.Replace(str, "%%KML_PLACEMARK_TITLE%%", xmlEscapeString(item[0].Wifi.SSID), 1)
         str = strings.Replace(str, "%%KML_PLACEMARK_DESCRIPTION%%", desc, 1)
-        str = strings.Replace(str, "%%KML_PLACEMARK_LONGITUDE%%", fmt.Sprintf("%f", item[0].Longitude), 1)
-        str = strings.Replace(str, "%%KML_PLACEMARK_LATITUDE%%", fmt.Sprintf("%f", item[0].Latitude), 1)
+        str = strings.Replace(str, "%%KML_PLACEMARK_LONGITUDE%%", fmt.Sprintf("%f", lng), 1)
+        str = strings.Replace(str, "%%KML_PLACEMARK_LATITUDE%%", fmt.Sprintf("%f", lat), 1)
 
         placemarksStr += str + "\n"
     }
@@ -130,9 +164,8 @@ func compute(items map[string][]ingest.DataPoint) string {
     payload = strings.Replace(payload, "%%KML_TITLE%%", "WiFi Site Survey", 1)
     payload = strings.Replace(payload, "%%KML_DESCRIPTION%%", fmt.Sprintf("Total networks surveyed: %d", len(items)), 1)
 
-    // TODO
-    payload = strings.Replace(payload, "%%KML_LOOKAT_LATITUDE%%", fmt.Sprintf("%f", lat), 1)
-    payload = strings.Replace(payload, "%%KML_LOOKAT_LONGITUDE%%", fmt.Sprintf("%f", lng), 1)
+    payload = strings.Replace(payload, "%%KML_LOOKAT_LATITUDE%%", fmt.Sprintf("%f", centerLat), 1)
+    payload = strings.Replace(payload, "%%KML_LOOKAT_LONGITUDE%%", fmt.Sprintf("%f", centerLng), 1)
 
     payload = strings.Replace(payload, "%%KML_PLACEMARKS%%", placemarksStr, 1)
 

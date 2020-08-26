@@ -4,7 +4,7 @@ Create precise maps of WiFi networks using commodity GPS hardware and a portable
 
 ## Getting Started
 
-You'll need a USB GPS receiver using serial over USB connection. u-blox 7 or similar will work great and is inexpensive. This utility will use the default WiFi device to scan for networks. 
+You'll need a USB GPS receiver using serial over USB connection.Please see below for a list of compatible hardware. This utility will use the default WiFi device to scan for networks. 
 
 ### Setup
 ```
